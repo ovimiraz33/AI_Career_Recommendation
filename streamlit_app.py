@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import streamlit as st
 
 # Load the dataset from Google Drive (assuming you have uploaded it somewhere)
-dataset_path = '/content/drive/MyDrive/AI LaB/Lab Project/final_career.csv'  # Update the path to your dataset
+dataset_path = 'final_career.csv'  # Update the path to your dataset
 df = pd.read_csv(dataset_path)
 
 def astar_search_with_graph(user_input, dataset):
