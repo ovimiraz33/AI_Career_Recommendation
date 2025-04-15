@@ -12,38 +12,61 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import streamlit as st
 
-# Load the dataset from Google Drive (assuming you have uploaded it somewhere)
-dataset_path = 'final_career.csv'  # Update the path to your dataset
+# Load the dataset
+dataset_path = 'final_career.csv'  # Make sure this file is in your project folder
 df = pd.read_csv(dataset_path)
 
-def astar_search_with_graph(user_input, dataset):
+# Function for A* Search (Updated realistic logic)
+def realistic_career_recommendation(user_input):
     path = []
- # Career recommendation logic based on user input
-    if user_input['Group'] == 'Science' and user_input['Math_Score'] == 'High' and user_input['Tech_Interest'] == 'Yes':
-        career = 'Engineer'
-        path = [('Group', 'Science'), ('Math_Score', 'High'), ('Tech_Interest', 'Yes')]
-    elif user_input['Group'] == 'Commerce' and user_input['Math_Score'] in ['Medium', 'Low'] and user_input['Experience'] in ['1 year', '2 years']:
-        career = 'Banker'
-        path = [('Group', 'Commerce'), ('Math_Score', user_input['Math_Score']), ('Experience', user_input['Experience'])]
-    elif user_input['Group'] == 'Commerce' and user_input['Math_Score'] == 'High' and user_input['Experience'] == 'No experience':
-        career = 'Financial Analyst'
-        path = [('Group', 'Commerce'), ('Math_Score', 'High'), ('Experience', 'No experience')]
-    elif user_input['Group'] == 'Humanities' and user_input['Creativity'] == 'High' and user_input['Experience'] in ['2 years', '3 years']:
-        career = 'Artist'
-        path = [('Group', 'Humanities'), ('Creativity', 'High'), ('Experience', user_input['Experience'])]
-    elif user_input['Group'] == 'Humanities' and user_input['Creativity'] == 'Medium' and user_input['Experience'] in ['1 year', '2 years']:
-        career = 'Journalist'
-        path = [('Group', 'Humanities'), ('Creativity', 'Medium'), ('Experience', user_input['Experience'])]
+    career = ""
+    
+    # Career recommendations based on user input combinations
+    if user_input['Group'] == 'Science':
+        if user_input['Math_Score'] == 'High' and user_input['Tech_Interest'] == 'Yes':
+            career = 'Engineer'
+            path = [('Group', 'Science'), ('Math_Score', 'High'), ('Tech_Interest', 'Yes')]
+        elif user_input['Math_Score'] == 'High' and user_input['Tech_Interest'] == 'No':
+            career = 'Research Scientist'
+            path = [('Group', 'Science'), ('Math_Score', 'High'), ('Tech_Interest', 'No')]
+        elif user_input['Math_Score'] == 'Medium' and user_input['Experience'] in ['1 year', '2 years']:
+            career = 'Programmer'
+            path = [('Group', 'Science'), ('Math_Score', 'Medium'), ('Experience', user_input['Experience'])]
+        else:
+            career = 'Laboratory Technician'
+            path = [('Group', 'Science'), ('Experience', 'No experience')]
+
+    elif user_input['Group'] == 'Commerce':
+        if user_input['Math_Score'] == 'High' and user_input['Experience'] == 'No experience':
+            career = 'Financial Analyst'
+            path = [('Group', 'Commerce'), ('Math_Score', 'High'), ('Experience', 'No experience')]
+        elif user_input['Math_Score'] in ['Medium', 'Low'] and user_input['Experience'] in ['1 year', '2 years']:
+            career = 'Banker'
+            path = [('Group', 'Commerce'), ('Math_Score', user_input['Math_Score']), ('Experience', user_input['Experience'])]
+        else:
+            career = 'Sales Manager'
+            path = [('Group', 'Commerce'), ('Experience', '3 years')]
+
+    elif user_input['Group'] == 'Humanities':
+        if user_input['Creativity'] == 'High' and user_input['Experience'] in ['2 years', '3 years']:
+            career = 'Artist'
+            path = [('Group', 'Humanities'), ('Creativity', 'High'), ('Experience', user_input['Experience'])]
+        elif user_input['Creativity'] == 'Medium' and user_input['Experience'] in ['1 year', '2 years']:
+            career = 'Journalist'
+            path = [('Group', 'Humanities'), ('Creativity', 'Medium'), ('Experience', user_input['Experience'])]
+        else:
+            career = 'Content Writer'
+            path = [('Group', 'Humanities'), ('Experience', '3 years')]
+
     else:
-        career = 'Programmer'  # Default fallback if no condition matches
-        path = [('Group', user_input['Group']), ('Experience', user_input['Experience'])]
+        career = 'Career Consultant'  # Default fallback if no match
+        path = [('Group', user_input['Group']), ('Experience', 'No experience')]
 
     return career, path
 
-# Streamlit interface (UI)
+# Streamlit UI for user input
 st.title('Career Recommendation System')
 
-# User input
 group = st.selectbox('Select Group', ['Science', 'Commerce', 'Humanities'])
 math_score = st.selectbox('Select Math Score', ['High', 'Medium', 'Low'])
 creativity = st.selectbox('Select Creativity', ['High', 'Medium', 'Low'])
@@ -60,21 +83,19 @@ if st.button('Get Career Recommendation'):
         'Tech_Interest': tech_interest
     }
 
-    # Run the A* search and get recommendation
-    career, path = astar_search_with_graph(user_input, df)
+    career, path = realistic_career_recommendation(user_input)
 
     st.write(f"Recommended Career: {career}")
     st.write(f"Decision Path: {path}")
 
-    # Create and display the decision path graph
+    # Create and display decision path graph
     G = nx.DiGraph()
     for i in range(len(path)-1):
         G.add_edge(f"{path[i][0]}={path[i][1]}", f"{path[i+1][0]}={path[i+1][1]}")
     G.add_edge(f"{path[-1][0]}={path[-1][1]}", f"Career={career}")
 
-    fig, ax = plt.subplots(figsize=(10, 6))  # Create a figure object explicitly
+    fig, ax = plt.subplots(figsize=(10, 6))
     pos = nx.spring_layout(G, seed=42)
     nx.draw(G, pos, with_labels=True, node_size=3000, node_color='skyblue', font_size=10, font_weight='bold', edge_color='gray', ax=ax)
     plt.title(f"A* Path to Career: {career}", fontsize=14)
-    st.pyplot(fig)  # Pass the figure object to st.pyplot()
-
+    st.pyplot(fig)
