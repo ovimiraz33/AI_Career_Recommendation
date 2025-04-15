@@ -72,9 +72,9 @@ if st.button('Get Career Recommendation'):
         G.add_edge(f"{path[i][0]}={path[i][1]}", f"{path[i+1][0]}={path[i+1][1]}")
     G.add_edge(f"{path[-1][0]}={path[-1][1]}", f"Career={career}")
 
-   fig, ax = plt.subplots(figsize=(10, 6))  # Create a figure object explicitly
-   pos = nx.spring_layout(G, seed=42)
-   nx.draw(G, pos, with_labels=True, node_size=3000, node_color='skyblue', font_size=10, font_weight='bold', edge_color='gray', ax=ax)
-   plt.title(f"A* Path to Career: {career}", fontsize=14)
-   st.pyplot(fig)  # Pass the figure object to st.pyplot()
+    fig, ax = plt.subplots(figsize=(10, 6))  # Create a figure object explicitly
+    pos = nx.spring_layout(G, seed=42)
+    nx.draw(G, pos, with_labels=True, node_size=3000, node_color='skyblue', font_size=10, font_weight='bold', edge_color='gray', ax=ax)
+    plt.title(f"A* Path to Career: {career}", fontsize=14)
+    st.pyplot(fig)  # Pass the figure object to st.pyplot()
 
