@@ -13,15 +13,15 @@ import matplotlib.pyplot as plt
 import streamlit as st
 
 # Load the dataset
-dataset_path = 'final_career.csv'  # Make sure this file is in your project folder
+dataset_path = 'final_career.csv'  # Update the path as needed
 df = pd.read_csv(dataset_path)
 
-# Function for A* Search (Updated realistic logic)
+# Function for realistic career recommendation
 def realistic_career_recommendation(user_input):
     path = []
     career = ""
     
-    # Career recommendations based on user input combinations
+    # Logic for career recommendation
     if user_input['Group'] == 'Science':
         if user_input['Math_Score'] == 'High' and user_input['Tech_Interest'] == 'Yes':
             career = 'Engineer'
@@ -67,11 +67,16 @@ def realistic_career_recommendation(user_input):
 # Streamlit UI for user input
 st.title('Career Recommendation System')
 
+# Correct dropdown options for user input
 group = st.selectbox('Select Group', ['Science', 'Commerce', 'Humanities'])
 math_score = st.selectbox('Select Math Score', ['High', 'Medium', 'Low'])
 creativity = st.selectbox('Select Creativity', ['High', 'Medium', 'Low'])
 experience = st.selectbox('Select Experience', ['No experience', '1 year', '2 years', '3 years', '4 years', '5 years'])
 tech_interest = st.selectbox('Select Tech Interest', ['Yes', 'No'])
+location = st.selectbox('Select Location Preference', ['Urban', 'Rural'])
+salary_expectation = st.selectbox('Select Salary Expectation', ['Low', 'Medium', 'High'])
+education_level = st.selectbox('Select Education Level', ['Undergraduate', 'Postgraduate'])
+communication_skills = st.selectbox('Select Communication Skills', ['Good', 'Poor'])
 
 # Button to get recommendation
 if st.button('Get Career Recommendation'):
@@ -80,11 +85,17 @@ if st.button('Get Career Recommendation'):
         'Math_Score': math_score,
         'Creativity': creativity,
         'Experience': experience,
-        'Tech_Interest': tech_interest
+        'Tech_Interest': tech_interest,
+        'Location': location,
+        'Salary_Expectation': salary_expectation,
+        'Education_Level': education_level,
+        'Communication_Skills': communication_skills
     }
 
+    # Get career and decision path
     career, path = realistic_career_recommendation(user_input)
 
+    # Display career recommendation and path
     st.write(f"Recommended Career: {career}")
     st.write(f"Decision Path: {path}")
 
@@ -94,6 +105,7 @@ if st.button('Get Career Recommendation'):
         G.add_edge(f"{path[i][0]}={path[i][1]}", f"{path[i+1][0]}={path[i+1][1]}")
     G.add_edge(f"{path[-1][0]}={path[-1][1]}", f"Career={career}")
 
+    # Plot the graph
     fig, ax = plt.subplots(figsize=(10, 6))
     pos = nx.spring_layout(G, seed=42)
     nx.draw(G, pos, with_labels=True, node_size=3000, node_color='skyblue', font_size=10, font_weight='bold', edge_color='gray', ax=ax)
