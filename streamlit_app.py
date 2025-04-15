@@ -11,63 +11,76 @@ import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
 import streamlit as st
+import heapq  # For A* Search
 
-# Load the dataset
-dataset_path = 'final_career.csv'  # Update the path as needed
+# Load the dataset (make sure you have the correct path to the dataset)
+dataset_path = 'final_career.csv'  # Replace this with your actual path if needed
 df = pd.read_csv(dataset_path)
 
-# Function for realistic career recommendation
-def realistic_career_recommendation(user_input):
-    path = []
-    career = ""
+# Define a class for the nodes in the A* search
+class Node:
+    def __init__(self, career, cost, heuristic):
+        self.career = career
+        self.cost = cost  # g(n) - The actual cost to reach the node
+        self.heuristic = heuristic  # h(n) - The estimated cost from the node to the goal
+        self.f = self.cost + self.heuristic  # f(n) = g(n) + h(n)
     
-    # Logic for career recommendation
-    if user_input['Group'] == 'Science':
-        if user_input['Math_Score'] == 'High' and user_input['Tech_Interest'] == 'Yes':
-            career = 'Engineer'
-            path = [('Group', 'Science'), ('Math_Score', 'High'), ('Tech_Interest', 'Yes')]
-        elif user_input['Math_Score'] == 'High' and user_input['Tech_Interest'] == 'No':
-            career = 'Research Scientist'
-            path = [('Group', 'Science'), ('Math_Score', 'High'), ('Tech_Interest', 'No')]
-        elif user_input['Math_Score'] == 'Medium' and user_input['Experience'] in ['1 year', '2 years']:
-            career = 'Programmer'
-            path = [('Group', 'Science'), ('Math_Score', 'Medium'), ('Experience', user_input['Experience'])]
-        else:
-            career = 'Laboratory Technician'
-            path = [('Group', 'Science'), ('Experience', 'No experience')]
+    def __lt__(self, other):
+        return self.f < other.f
 
-    elif user_input['Group'] == 'Commerce':
-        if user_input['Math_Score'] == 'High' and user_input['Experience'] == 'No experience':
-            career = 'Financial Analyst'
-            path = [('Group', 'Commerce'), ('Math_Score', 'High'), ('Experience', 'No experience')]
-        elif user_input['Math_Score'] in ['Medium', 'Low'] and user_input['Experience'] in ['1 year', '2 years']:
-            career = 'Banker'
-            path = [('Group', 'Commerce'), ('Math_Score', user_input['Math_Score']), ('Experience', user_input['Experience'])]
-        else:
-            career = 'Sales Manager'
-            path = [('Group', 'Commerce'), ('Experience', '3 years')]
+# Function to calculate heuristic (h)
+def calculate_heuristic(user_input, career):
+    # Define heuristics based on user's input (simplified for now)
+    heuristic = 0
+    if user_input['Math_Score'] == 'High' and 'Engineer' in career:
+        heuristic += 1
+    if user_input['Tech_Interest'] == 'Yes' and 'Engineer' in career:
+        heuristic += 1
+    if user_input['Experience'] in ['2 years', '3 years'] and 'Artist' in career:
+        heuristic += 1
+    return heuristic
 
-    elif user_input['Group'] == 'Humanities':
-        if user_input['Creativity'] == 'High' and user_input['Experience'] in ['2 years', '3 years']:
-            career = 'Artist'
-            path = [('Group', 'Humanities'), ('Creativity', 'High'), ('Experience', user_input['Experience'])]
-        elif user_input['Creativity'] == 'Medium' and user_input['Experience'] in ['1 year', '2 years']:
-            career = 'Journalist'
-            path = [('Group', 'Humanities'), ('Creativity', 'Medium'), ('Experience', user_input['Experience'])]
-        else:
-            career = 'Content Writer'
-            path = [('Group', 'Humanities'), ('Experience', '3 years')]
+# Function to calculate the cost (g)
+def calculate_cost(user_input, career):
+    # Define cost based on how well the user matches the career (simplified for now)
+    cost = 0
+    if user_input['Group'] in career:
+        cost += 1
+    if user_input['Math_Score'] in career:
+        cost += 1
+    if user_input['Experience'] in career:
+        cost += 1
+    return cost
 
-    else:
-        career = 'Career Consultant'  # Default fallback if no match
-        path = [('Group', user_input['Group']), ('Experience', 'No experience')]
-
-    return career, path
+# A* search function
+def astar_search(user_input, career_choices):
+    open_list = []
+    closed_list = set()
+    
+    # Add start node for each career
+    for career in career_choices:
+        heuristic = calculate_heuristic(user_input, career)
+        cost = calculate_cost(user_input, career)
+        node = Node(career, cost, heuristic)
+        heapq.heappush(open_list, node)
+    
+    # Process the open list and find the best career
+    while open_list:
+        current_node = heapq.heappop(open_list)
+        
+        if current_node.career not in closed_list:
+            closed_list.add(current_node.career)
+            if current_node.f == 0:  # We have found the best career
+                return current_node.career
+        
+        # Continue exploring the neighbors (for a real A* search, this would involve expanding nodes)
+    
+    return "No valid career found"  # If no career matches
 
 # Streamlit UI for user input
 st.title('Career Recommendation System')
 
-# Correct dropdown options for user input
+# Streamlit input fields
 group = st.selectbox('Select Group', ['Science', 'Commerce', 'Humanities'])
 math_score = st.selectbox('Select Math Score', ['High', 'Medium', 'Low'])
 creativity = st.selectbox('Select Creativity', ['High', 'Medium', 'Low'])
@@ -91,23 +104,26 @@ if st.button('Get Career Recommendation'):
         'Education_Level': education_level,
         'Communication_Skills': communication_skills
     }
+    
+    # Define career choices (these can be extracted from the dataset)
+    career_choices = ['Engineer', 'Research Scientist', 'Programmer', 'Artist', 'Journalist', 'Content Writer', 'Sales Manager', 'Career Consultant']
 
-    # Get career and decision path
-    career, path = realistic_career_recommendation(user_input)
+    # Run the A* search algorithm
+    recommended_career = astar_search(user_input, career_choices)
 
-    # Display career recommendation and path
-    st.write(f"Recommended Career: {career}")
-    st.write(f"Decision Path: {path}")
+    st.write(f"Recommended Career: {recommended_career}")
 
-    # Create and display decision path graph
+    # Decision path visualization
+    path = [(user_input['Group'], recommended_career)]
     G = nx.DiGraph()
     for i in range(len(path)-1):
         G.add_edge(f"{path[i][0]}={path[i][1]}", f"{path[i+1][0]}={path[i+1][1]}")
-    G.add_edge(f"{path[-1][0]}={path[-1][1]}", f"Career={career}")
+    G.add_edge(f"{path[-1][0]}={path[-1][1]}", f"Career={recommended_career}")
 
     # Plot the graph
     fig, ax = plt.subplots(figsize=(10, 6))
     pos = nx.spring_layout(G, seed=42)
     nx.draw(G, pos, with_labels=True, node_size=3000, node_color='skyblue', font_size=10, font_weight='bold', edge_color='gray', ax=ax)
-    plt.title(f"A* Path to Career: {career}", fontsize=14)
+    plt.title(f"A* Path to Career: {recommended_career}", fontsize=14)
     st.pyplot(fig)
+
