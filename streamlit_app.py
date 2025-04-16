@@ -7,123 +7,112 @@ Original file is located at
     https://colab.research.google.com/drive/1o0Kh1PtWCYJaJtqkIT9RgS0umuyO_WGp
 """
 
+# streamlit_app.py
+import streamlit as st
 import pandas as pd
+import heapq
 import networkx as nx
 import matplotlib.pyplot as plt
-import streamlit as st
-import heapq  # For A* Search
 
-# Load the dataset (make sure you have the correct path to the dataset)
-dataset_path = 'final_career.csv'  # Replace this with your actual path if needed
-df = pd.read_csv(dataset_path)
+# Read dataset
+df = pd.read_csv('Updated_career_dataset.csv')  # Place CSV in same folder
 
-# Define a class for the nodes in the A* search
-class Node:
-    def __init__(self, career, cost, heuristic):
-        self.career = career
-        self.cost = cost  # g(n) - The actual cost to reach the node
-        self.heuristic = heuristic  # h(n) - The estimated cost from the node to the goal
-        self.f = self.cost + self.heuristic  # f(n) = g(n) + h(n)
-    
-    def __lt__(self, other):
-        return self.f < other.f
+# Build graph
+def build_graph_from_dataset(df):
+    G = {}
+    for _, row in df.iterrows():
+        path = [
+            f"Group={row['Group']}",
+            f"Math={row['Math_Score']}",
+            f"Tech={row['Tech_Interest']}",
+            f"Creativity={row['Creativity']}",
+            f"Experience={row['Experience']}",
+            f"Career={row['Career']}"
+        ]
+        for i in range(len(path) - 1):
+            src = path[i]
+            dst = path[i + 1]
+            if src not in G:
+                G[src] = []
+            if dst not in [node for node, _ in G[src]]:
+                G[src].append((dst, 1))  # uniform cost
+    return G
 
-# Function to calculate heuristic (h)
-def calculate_heuristic(user_input, career):
-    # Define heuristics based on user's input (simplified for now)
-    heuristic = 0
-    if user_input['Math_Score'] == 'High' and 'Engineer' in career:
-        heuristic += 1
-    if user_input['Tech_Interest'] == 'Yes' and 'Engineer' in career:
-        heuristic += 1
-    if user_input['Experience'] in ['2 years', '3 years'] and 'Artist' in career:
-        heuristic += 1
-    return heuristic
+# Heuristic
+def build_heuristics(G):
+    return {node: 0 if node.startswith("Career=") else 1 for node in G}
 
-# Function to calculate the cost (g)
-def calculate_cost(user_input, career):
-    # Define cost based on how well the user matches the career (simplified for now)
-    cost = 0
-    if user_input['Group'] in career:
-        cost += 1
-    if user_input['Math_Score'] in career:
-        cost += 1
-    if user_input['Experience'] in career:
-        cost += 1
-    return cost
+# A* Search (return top-N)
+def a_star_top_k(graph, heuristics, start_node, goal_prefix="Career=", k=3):
+    frontier = []
+    heapq.heappush(frontier, (0, start_node, []))
+    visited = set()
+    results = []
 
-# A* search function
-def astar_search(user_input, career_choices):
-    open_list = []
-    closed_list = set()
-    
-    # Add start node for each career
-    for career in career_choices:
-        heuristic = calculate_heuristic(user_input, career)
-        cost = calculate_cost(user_input, career)
-        node = Node(career, cost, heuristic)
-        heapq.heappush(open_list, node)
-    
-    # Process the open list and find the best career
-    while open_list:
-        current_node = heapq.heappop(open_list)
-        
-        if current_node.career not in closed_list:
-            closed_list.add(current_node.career)
-            if current_node.f == 0:  # We have found the best career
-                return current_node.career
-        
-        # Continue exploring the neighbors (for a real A* search, this would involve expanding nodes)
-    
-    return "No valid career found"  # If no career matches
+    while frontier and len(results) < k:
+        f_score, current, path = heapq.heappop(frontier)
+        path = path + [current]
+        if current.startswith(goal_prefix) and path not in results:
+            results.append((path, f_score))
+            continue
+        if current in visited:
+            continue
+        visited.add(current)
 
-# Streamlit UI for user input
-st.title('Career Recommendation System')
+        for neighbor, cost in graph.get(current, []):
+            g = len(path)
+            h = heuristics.get(neighbor, 1)
+            f = g + h
+            heapq.heappush(frontier, (f, neighbor, path))
 
-# Streamlit input fields
-group = st.selectbox('Select Group', ['Science', 'Commerce', 'Humanities'])
-math_score = st.selectbox('Select Math Score', ['High', 'Medium', 'Low'])
-creativity = st.selectbox('Select Creativity', ['High', 'Medium', 'Low'])
-experience = st.selectbox('Select Experience', ['No experience', '1 year', '2 years', '3 years', '4 years', '5 years'])
-tech_interest = st.selectbox('Select Tech Interest', ['Yes', 'No'])
-location = st.selectbox('Select Location Preference', ['Urban', 'Rural'])
-salary_expectation = st.selectbox('Select Salary Expectation', ['Low', 'Medium', 'High'])
-education_level = st.selectbox('Select Education Level', ['Undergraduate', 'Postgraduate'])
-communication_skills = st.selectbox('Select Communication Skills', ['Good', 'Poor'])
+    return results
 
-# Button to get recommendation
-if st.button('Get Career Recommendation'):
+# Streamlit UI
+st.title("Career Recommendation using A* Search")
+st.markdown("Select your attributes to get top-3 recommended career paths.")
+
+# Dropdowns
+group = st.selectbox("Select Group", sorted(df['Group'].unique()))
+math = st.selectbox("Math Score", sorted(df['Math_Score'].unique()))
+tech = st.selectbox("Tech Interest", sorted(df['Tech_Interest'].unique()))
+creativity = st.selectbox("Creativity", sorted(df['Creativity'].unique()))
+experience = st.selectbox("Experience", sorted(df['Experience'].unique()))
+
+# On click
+if st.button("Recommend Career"):
     user_input = {
         'Group': group,
-        'Math_Score': math_score,
+        'Math_Score': math,
+        'Tech_Interest': tech,
         'Creativity': creativity,
-        'Experience': experience,
-        'Tech_Interest': tech_interest,
-        'Location': location,
-        'Salary_Expectation': salary_expectation,
-        'Education_Level': education_level,
-        'Communication_Skills': communication_skills
+        'Experience': experience
     }
-    
-    # Define career choices (these can be extracted from the dataset)
-    career_choices = ['Engineer', 'Research Scientist', 'Programmer', 'Artist', 'Journalist', 'Content Writer', 'Sales Manager', 'Career Consultant']
 
-    # Run the A* search algorithm
-    recommended_career = astar_search(user_input, career_choices)
+    filtered_df = df.copy()
+    for key, value in user_input.items():
+        filtered_df = filtered_df[filtered_df[key] == value]
 
-    st.write(f"Recommended Career: {recommended_career}")
+    G = build_graph_from_dataset(filtered_df)
+    H = build_heuristics(G)
+    start_node = f"Group={group}"
+    results = a_star_top_k(G, H, start_node, k=3)
 
-    # Decision path visualization
-    path = [(user_input['Group'], recommended_career)]
-    G = nx.DiGraph()
-    for i in range(len(path)-1):
-        G.add_edge(f"{path[i][0]}={path[i][1]}", f"{path[i+1][0]}={path[i+1][1]}")
-    G.add_edge(f"{path[-1][0]}={path[-1][1]}", f"Career={recommended_career}")
+    if results:
+        for idx, (path, cost) in enumerate(results, 1):
+            st.markdown(f"### 🔹 Career Option {idx}")
+            st.write(" → ".join(path))
+            st.write(f"Total Cost: {cost}")
 
-    # Plot the graph
-    fig, ax = plt.subplots(figsize=(10, 6))
-    pos = nx.spring_layout(G, seed=42)
-    nx.draw(G, pos, with_labels=True, node_size=3000, node_color='skyblue', font_size=10, font_weight='bold', edge_color='gray', ax=ax)
-    plt.title(f"A* Path to Career: {recommended_career}", fontsize=14)
-    st.pyplot(fig)
+            # Draw path
+            Gviz = nx.DiGraph()
+            for i in range(len(path) - 1):
+                Gviz.add_edge(path[i], path[i + 1])
+            fig, ax = plt.subplots(figsize=(10, 4))
+            pos = nx.spring_layout(Gviz, seed=42)
+            nx.draw(Gviz, pos, with_labels=True, node_color='skyblue', node_size=3000,
+                    font_size=9, font_weight='bold', edge_color='gray', ax=ax)
+            st.pyplot(fig)
+    else:
+        st.warning("No career path found for the selected attributes.")
+
 
