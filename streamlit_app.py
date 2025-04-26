@@ -7,8 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1o0Kh1PtWCYJaJtqkIT9RgS0umuyO_WGp
 """
 
-# streamlit_app.py
-# Full working STREAMLIT code to display final career path graph
+# A* Career Recommendation System with Reset Blank Inputs (Streamlit)
 
 import streamlit as st
 import pandas as pd
@@ -20,7 +19,7 @@ from collections import defaultdict
 # Load dataset
 @st.cache_data
 def load_data():
-    file_path = 'Updated_career_dataset.csv'  # Make sure the file is in your working directory
+    file_path = 'Updated_career_dataset.csv'  # Adjust this if needed
     return pd.read_csv(file_path)
 
 df = load_data()
@@ -57,7 +56,7 @@ def build_heuristics(G, user_input):
             H[node] = 0 if user_input.get(key) == value else 2
     return H
 
-# A* search
+# A* Search
 def a_star_search(graph, heuristics, start_node, goal_prefix="Career="):
     frontier = []
     heapq.heappush(frontier, (0, start_node, []))
@@ -94,64 +93,74 @@ def get_top_recommendations(df, user_input, num_recommendations=3):
     sorted_recommendations = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
     return [career for career, _ in sorted_recommendations[:num_recommendations]]
 
-# Streamlit Interface
+# Initialize Session State for each field
+for field in ['group', 'math', 'tech', 'creativity', 'experience']:
+    if field not in st.session_state:
+        st.session_state[field] = None
+
+# UI Start
 st.title("🔍 A* Career Path Recommendation System")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    group = st.selectbox("Select Group", sorted(df['Group'].unique()))
-    math = st.selectbox("Select Math Score", sorted(df['Math_Score'].unique()))
-    tech = st.selectbox("Select Tech Interest", sorted(df['Tech_Interest'].unique()))
+    group = st.selectbox("Select Group", sorted(df['Group'].unique()), key='group')
+    math = st.selectbox("Select Math Score", sorted(df['Math_Score'].unique()), key='math')
+    tech = st.selectbox("Select Tech Interest", sorted(df['Tech_Interest'].unique()), key='tech')
 
 with col2:
-    creativity = st.selectbox("Select Creativity", sorted(df['Creativity'].unique()))
-    experience = st.selectbox("Select Experience", sorted(df['Experience'].unique()))
+    creativity = st.selectbox("Select Creativity", sorted(df['Creativity'].unique()), key='creativity')
+    experience = st.selectbox("Select Experience", sorted(df['Experience'].unique()), key='experience')
 
-# Submit Button
+# Find Career Path Button
 if st.button("Find Career Path"):
-    user_input = {
-        'Group': group,
-        'Math_Score': math,
-        'Tech_Interest': tech,
-        'Creativity': creativity,
-        'Experience': experience
-    }
-
-    G = build_graph_from_dataset(df)
-    H = build_heuristics(G, user_input)
-    start_node = f"Group={group}"
-    path, cost = a_star_search(G, H, start_node)
-
-    if path:
-        st.success("🎯 Career Recommendation Path Found:")
-        for step in path:
-            st.write("→", step)
-
-        st.info(f"🧮 **Total Path Cost:** {cost}")
-
-        # Visualize the path as a graph
-        Gviz = nx.DiGraph()
-        for i in range(len(path) - 1):
-            Gviz.add_edge(path[i], path[i + 1])
-
-        plt.figure(figsize=(12, 6))
-        pos = nx.spring_layout(Gviz, seed=42)
-        nx.draw(Gviz, pos, with_labels=True, node_color='lightblue', node_size=3000,
-                font_size=10, font_weight='bold', edge_color='gray')
-        plt.title("Decision Path to Career")
-        st.pyplot(plt)
-
-        # Top 3 Recommendations
-        recommendations = get_top_recommendations(df, user_input)
-        st.markdown("### 💡 Top Career Recommendations:")
-        for i, rec in enumerate(recommendations):
-            st.write(f"{i+1}. {rec}")
+    if None in [group, math, tech, creativity, experience]:
+        st.warning("⚠️ Please select all fields before submitting.")
     else:
-        st.error("❌ No career path found. Please try different inputs.")
+        user_input = {
+            'Group': group,
+            'Math_Score': math,
+            'Tech_Interest': tech,
+            'Creativity': creativity,
+            'Experience': experience
+        }
 
+        G = build_graph_from_dataset(df)
+        H = build_heuristics(G, user_input)
+        start_node = f"Group={group}"
+        path, cost = a_star_search(G, H, start_node)
+
+        if path:
+            st.success("🎯 Career Recommendation Path Found:")
+            for step in path:
+                st.write("→", step)
+
+            st.info(f"🧮 **Total Path Cost:** {cost}")
+
+            # Graph Visualization
+            Gviz = nx.DiGraph()
+            for i in range(len(path) - 1):
+                Gviz.add_edge(path[i], path[i + 1])
+
+            plt.figure(figsize=(12, 6))
+            pos = nx.spring_layout(Gviz, seed=42)
+            nx.draw(Gviz, pos, with_labels=True, node_color='lightblue', node_size=3000,
+                    font_size=10, font_weight='bold', edge_color='gray')
+            plt.title("Decision Path to Career")
+            st.pyplot(plt)
+
+            # Top 3 Recommendations
+            recommendations = get_top_recommendations(df, user_input)
+            st.markdown("### 💡 Top Career Recommendations:")
+            for i, rec in enumerate(recommendations):
+                st.write(f"{i+1}. {rec}")
+        else:
+            st.error("❌ No career path found. Please try different inputs.")
+
+# Reset Button
 if st.button("Reset"):
-    st.rerun()
-
+    for field in ['group', 'math', 'tech', 'creativity', 'experience']:
+        st.session_state[field] = None
+    st.success("✅ Inputs cleared successfully!")
 
 
