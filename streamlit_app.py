@@ -8,16 +8,24 @@ Original file is located at
 """
 
 # streamlit_app.py
+# Full working STREAMLIT code to display final career path graph
+
 import streamlit as st
 import pandas as pd
 import heapq
 import networkx as nx
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
-# Read dataset
-df = pd.read_csv('Updated_career_dataset.csv')  # Place CSV in same folder
+# Load dataset
+@st.cache_data
+def load_data():
+    file_path = 'Updated_career_dataset.csv'  # Make sure the file is in your working directory
+    return pd.read_csv(file_path)
 
-# Build graph
+df = load_data()
+
+# Build Graph from DataFrame
 def build_graph_from_dataset(df):
     G = {}
     for _, row in df.iterrows():
@@ -34,27 +42,34 @@ def build_graph_from_dataset(df):
             dst = path[i + 1]
             if src not in G:
                 G[src] = []
-            if dst not in [node for node, _ in G[src]]:
-                G[src].append((dst, 1))  # uniform cost
+            if dst not in [n for n, _ in G[src]]:
+                G[src].append((dst, 1))
     return G
 
-# Heuristic
-def build_heuristics(G):
-    return {node: 0 if node.startswith("Career=") else 1 for node in G}
+# Heuristic function
+def build_heuristics(G, user_input):
+    H = {}
+    for node in G:
+        if node.startswith("Career="):
+            H[node] = 0
+        else:
+            key, value = node.split('=')
+            H[node] = 0 if user_input.get(key) == value else 2
+    return H
 
-# A* Search (return top-N)
-def a_star_top_k(graph, heuristics, start_node, goal_prefix="Career=", k=3):
+# A* search
+def a_star_search(graph, heuristics, start_node, goal_prefix="Career="):
     frontier = []
     heapq.heappush(frontier, (0, start_node, []))
     visited = set()
-    results = []
 
-    while frontier and len(results) < k:
+    while frontier:
         f_score, current, path = heapq.heappop(frontier)
         path = path + [current]
-        if current.startswith(goal_prefix) and path not in results:
-            results.append((path, f_score))
-            continue
+
+        if current.startswith(goal_prefix):
+            return path, f_score
+
         if current in visited:
             continue
         visited.add(current)
@@ -65,21 +80,36 @@ def a_star_top_k(graph, heuristics, start_node, goal_prefix="Career=", k=3):
             f = g + h
             heapq.heappush(frontier, (f, neighbor, path))
 
-    return results
+    return None, None
 
-# Streamlit UI
-st.title("Career Recommendation using A* Search")
-st.markdown("Select your attributes to get top-3 recommended career paths.")
+# Recommendation engine
+def get_top_recommendations(df, user_input, num_recommendations=3):
+    recommendations = defaultdict(int)
+    similar_users = df[
+        (df['Group'] == user_input['Group']) &
+        (df['Math_Score'] == user_input['Math_Score'])
+    ]
+    for career in similar_users['Career']:
+        recommendations[career] += 1
+    sorted_recommendations = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
+    return [career for career, _ in sorted_recommendations[:num_recommendations]]
 
-# Dropdowns
-group = st.selectbox("Select Group", sorted(df['Group'].unique()))
-math = st.selectbox("Math Score", sorted(df['Math_Score'].unique()))
-tech = st.selectbox("Tech Interest", sorted(df['Tech_Interest'].unique()))
-creativity = st.selectbox("Creativity", sorted(df['Creativity'].unique()))
-experience = st.selectbox("Experience", sorted(df['Experience'].unique()))
+# Streamlit Interface
+st.title("🔍 A* Career Path Recommendation System")
 
-# On click
-if st.button("Recommend Career"):
+col1, col2 = st.columns(2)
+
+with col1:
+    group = st.selectbox("Select Group", sorted(df['Group'].unique()))
+    math = st.selectbox("Select Math Score", sorted(df['Math_Score'].unique()))
+    tech = st.selectbox("Select Tech Interest", sorted(df['Tech_Interest'].unique()))
+
+with col2:
+    creativity = st.selectbox("Select Creativity", sorted(df['Creativity'].unique()))
+    experience = st.selectbox("Select Experience", sorted(df['Experience'].unique()))
+
+# Submit Button
+if st.button("Find Career Path"):
     user_input = {
         'Group': group,
         'Math_Score': math,
@@ -88,31 +118,40 @@ if st.button("Recommend Career"):
         'Experience': experience
     }
 
-    filtered_df = df.copy()
-    for key, value in user_input.items():
-        filtered_df = filtered_df[filtered_df[key] == value]
-
-    G = build_graph_from_dataset(filtered_df)
-    H = build_heuristics(G)
+    G = build_graph_from_dataset(df)
+    H = build_heuristics(G, user_input)
     start_node = f"Group={group}"
-    results = a_star_top_k(G, H, start_node, k=3)
+    path, cost = a_star_search(G, H, start_node)
 
-    if results:
-        for idx, (path, cost) in enumerate(results, 1):
-            st.markdown(f"### 🔹 Career Option {idx}")
-            st.write(" → ".join(path))
-            st.write(f"Total Cost: {cost}")
+    if path:
+        st.success("🎯 Career Recommendation Path Found:")
+        for step in path:
+            st.write("→", step)
 
-            # Draw path
-            Gviz = nx.DiGraph()
-            for i in range(len(path) - 1):
-                Gviz.add_edge(path[i], path[i + 1])
-            fig, ax = plt.subplots(figsize=(10, 4))
-            pos = nx.spring_layout(Gviz, seed=42)
-            nx.draw(Gviz, pos, with_labels=True, node_color='skyblue', node_size=3000,
-                    font_size=9, font_weight='bold', edge_color='gray', ax=ax)
-            st.pyplot(fig)
+        st.info(f"🧮 **Total Path Cost:** {cost}")
+
+        # Visualize the path as a graph
+        Gviz = nx.DiGraph()
+        for i in range(len(path) - 1):
+            Gviz.add_edge(path[i], path[i + 1])
+
+        plt.figure(figsize=(12, 6))
+        pos = nx.spring_layout(Gviz, seed=42)
+        nx.draw(Gviz, pos, with_labels=True, node_color='lightblue', node_size=3000,
+                font_size=10, font_weight='bold', edge_color='gray')
+        plt.title("Decision Path to Career")
+        st.pyplot(plt)
+
+        # Top 3 Recommendations
+        recommendations = get_top_recommendations(df, user_input)
+        st.markdown("### 💡 Top Career Recommendations:")
+        for i, rec in enumerate(recommendations):
+            st.write(f"{i+1}. {rec}")
     else:
-        st.warning("No career path found for the selected attributes.")
+        st.error("❌ No career path found. Please try different inputs.")
+
+# Reset Button
+if st.button("Reset"):
+    st.experimental_rerun()
 
 
