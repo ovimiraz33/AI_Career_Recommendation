@@ -7,7 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1o0Kh1PtWCYJaJtqkIT9RgS0umuyO_WGp
 """
 
-# A* Career Recommendation System with Reset Blank Inputs (Streamlit)
+# A* Career Recommendation System (Fixed Smart Reset Streamlit Version)
 
 import streamlit as st
 import pandas as pd
@@ -19,12 +19,12 @@ from collections import defaultdict
 # Load dataset
 @st.cache_data
 def load_data():
-    file_path = 'Updated_career_dataset.csv'  # Adjust this if needed
+    file_path = 'Updated_career_dataset.csv'  # Adjust file path
     return pd.read_csv(file_path)
 
 df = load_data()
 
-# Build Graph from DataFrame
+# Build Graph
 def build_graph_from_dataset(df):
     G = {}
     for _, row in df.iterrows():
@@ -45,7 +45,7 @@ def build_graph_from_dataset(df):
                 G[src].append((dst, 1))
     return G
 
-# Heuristic function
+# Heuristic
 def build_heuristics(G, user_input):
     H = {}
     for node in G:
@@ -56,7 +56,7 @@ def build_heuristics(G, user_input):
             H[node] = 0 if user_input.get(key) == value else 2
     return H
 
-# A* Search
+# A* search
 def a_star_search(graph, heuristics, start_node, goal_prefix="Career="):
     frontier = []
     heapq.heappush(frontier, (0, start_node, []))
@@ -81,7 +81,7 @@ def a_star_search(graph, heuristics, start_node, goal_prefix="Career="):
 
     return None, None
 
-# Recommendation engine
+# Recommendations
 def get_top_recommendations(df, user_input, num_recommendations=3):
     recommendations = defaultdict(int)
     similar_users = df[
@@ -93,28 +93,28 @@ def get_top_recommendations(df, user_input, num_recommendations=3):
     sorted_recommendations = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
     return [career for career, _ in sorted_recommendations[:num_recommendations]]
 
-# Initialize Session State for each field
+# Initialize session keys with empty string instead of None
 for field in ['group', 'math', 'tech', 'creativity', 'experience']:
     if field not in st.session_state:
-        st.session_state[field] = None
+        st.session_state[field] = ""
 
-# UI Start
+# App UI
 st.title("🔍 A* Career Path Recommendation System")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    group = st.selectbox("Select Group", sorted(df['Group'].unique()), key='group')
-    math = st.selectbox("Select Math Score", sorted(df['Math_Score'].unique()), key='math')
-    tech = st.selectbox("Select Tech Interest", sorted(df['Tech_Interest'].unique()), key='tech')
+    group = st.selectbox("Select Group", options=[""] + sorted(df['Group'].unique()), key='group')
+    math = st.selectbox("Select Math Score", options=[""] + sorted(df['Math_Score'].unique()), key='math')
+    tech = st.selectbox("Select Tech Interest", options=[""] + sorted(df['Tech_Interest'].unique()), key='tech')
 
 with col2:
-    creativity = st.selectbox("Select Creativity", sorted(df['Creativity'].unique()), key='creativity')
-    experience = st.selectbox("Select Experience", sorted(df['Experience'].unique()), key='experience')
+    creativity = st.selectbox("Select Creativity", options=[""] + sorted(df['Creativity'].unique()), key='creativity')
+    experience = st.selectbox("Select Experience", options=[""] + sorted(df['Experience'].unique()), key='experience')
 
-# Find Career Path Button
+# Find Career Path
 if st.button("Find Career Path"):
-    if None in [group, math, tech, creativity, experience]:
+    if "" in [group, math, tech, creativity, experience]:
         st.warning("⚠️ Please select all fields before submitting.")
     else:
         user_input = {
@@ -137,7 +137,7 @@ if st.button("Find Career Path"):
 
             st.info(f"🧮 **Total Path Cost:** {cost}")
 
-            # Graph Visualization
+            # Graph visualization
             Gviz = nx.DiGraph()
             for i in range(len(path) - 1):
                 Gviz.add_edge(path[i], path[i + 1])
@@ -149,7 +149,7 @@ if st.button("Find Career Path"):
             plt.title("Decision Path to Career")
             st.pyplot(plt)
 
-            # Top 3 Recommendations
+            # Recommendations
             recommendations = get_top_recommendations(df, user_input)
             st.markdown("### 💡 Top Career Recommendations:")
             for i, rec in enumerate(recommendations):
@@ -157,10 +157,9 @@ if st.button("Find Career Path"):
         else:
             st.error("❌ No career path found. Please try different inputs.")
 
-# Reset Button
+# Reset
 if st.button("Reset"):
     for field in ['group', 'math', 'tech', 'creativity', 'experience']:
-        st.session_state[field] = None
+        st.session_state[field] = ""
     st.success("✅ Inputs cleared successfully!")
-
 
