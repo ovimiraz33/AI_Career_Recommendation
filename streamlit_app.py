@@ -150,8 +150,8 @@ if st.button("Find Career Path"):
     else:
         st.error("❌ No career path found. Please try different inputs.")
 
-# Reset Button
 if st.button("Reset"):
-    st.experimental_rerun()
+    st.rerun()
+
 
 
