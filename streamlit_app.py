@@ -7,8 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1o0Kh1PtWCYJaJtqkIT9RgS0umuyO_WGp
 """
 
-# A* Career Recommendation System (Fixed Smart Reset Streamlit Version)
-
 import streamlit as st
 import pandas as pd
 import heapq
@@ -19,7 +17,7 @@ from collections import defaultdict
 # Load dataset
 @st.cache_data
 def load_data():
-    file_path = 'Updated_career_dataset.csv'  # Adjust file path
+    file_path = 'Updated_career_dataset.csv'
     return pd.read_csv(file_path)
 
 df = load_data()
@@ -93,10 +91,18 @@ def get_top_recommendations(df, user_input, num_recommendations=3):
     sorted_recommendations = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
     return [career for career, _ in sorted_recommendations[:num_recommendations]]
 
-# Initialize session keys with empty string instead of None
-for field in ['group', 'math', 'tech', 'creativity', 'experience']:
-    if field not in st.session_state:
-        st.session_state[field] = ""
+# Initialize Session State Properly
+if 'reset' not in st.session_state:
+    st.session_state['reset'] = False
+
+# If reset button was clicked, clear fields
+if st.session_state['reset']:
+    st.session_state['group'] = ""
+    st.session_state['math'] = ""
+    st.session_state['tech'] = ""
+    st.session_state['creativity'] = ""
+    st.session_state['experience'] = ""
+    st.session_state['reset'] = False  # Reset flag off
 
 # App UI
 st.title("🔍 A* Career Path Recommendation System")
@@ -157,9 +163,8 @@ if st.button("Find Career Path"):
         else:
             st.error("❌ No career path found. Please try different inputs.")
 
-# Reset
+# Reset Button
 if st.button("Reset"):
-    for field in ['group', 'math', 'tech', 'creativity', 'experience']:
-        st.session_state[field] = ""
-    st.success("✅ Inputs cleared successfully!")
+    st.session_state['reset'] = True
+    st.rerun()
 
