@@ -7,6 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1o0Kh1PtWCYJaJtqkIT9RgS0umuyO_WGp
 """
 
+# Import libraries
 import streamlit as st
 import pandas as pd
 import heapq
@@ -17,7 +18,7 @@ from collections import defaultdict
 # Load dataset
 @st.cache_data
 def load_data():
-    file_path = 'Updated_career_dataset.csv'
+    file_path = 'Updated_career_dataset.csv'  # <-- Update your file path if needed
     return pd.read_csv(file_path)
 
 df = load_data()
@@ -43,7 +44,7 @@ def build_graph_from_dataset(df):
                 G[src].append((dst, 1))
     return G
 
-# Heuristic
+# Heuristic function
 def build_heuristics(G, user_input):
     H = {}
     for node in G:
@@ -54,7 +55,7 @@ def build_heuristics(G, user_input):
             H[node] = 0 if user_input.get(key) == value else 2
     return H
 
-# A* search
+# A* Search
 def a_star_search(graph, heuristics, start_node, goal_prefix="Career="):
     frontier = []
     heapq.heappush(frontier, (0, start_node, []))
@@ -79,7 +80,7 @@ def a_star_search(graph, heuristics, start_node, goal_prefix="Career="):
 
     return None, None
 
-# Recommendations
+# Top Career Recommendations
 def get_top_recommendations(df, user_input, num_recommendations=3):
     recommendations = defaultdict(int)
     similar_users = df[
@@ -91,24 +92,24 @@ def get_top_recommendations(df, user_input, num_recommendations=3):
     sorted_recommendations = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
     return [career for career, _ in sorted_recommendations[:num_recommendations]]
 
-# Initialize Session State Properly
+# Initialize Session State
 if 'reset' not in st.session_state:
     st.session_state['reset'] = False
 
-# If reset button was clicked, clear fields
 if st.session_state['reset']:
     st.session_state['group'] = ""
     st.session_state['math'] = ""
     st.session_state['tech'] = ""
     st.session_state['creativity'] = ""
     st.session_state['experience'] = ""
-    st.session_state['reset'] = False  # Reset flag off
+    st.session_state['reset'] = False
 
-# App UI
+# App Title
 st.title("🔍 A* Career Path Recommendation System")
 
 col1, col2 = st.columns(2)
 
+# Selection Fields
 with col1:
     group = st.selectbox("Select Group", options=[""] + sorted(df['Group'].unique()), key='group')
     math = st.selectbox("Select Math Score", options=[""] + sorted(df['Math_Score'].unique()), key='math')
@@ -118,7 +119,9 @@ with col2:
     creativity = st.selectbox("Select Creativity", options=[""] + sorted(df['Creativity'].unique()), key='creativity')
     experience = st.selectbox("Select Experience", options=[""] + sorted(df['Experience'].unique()), key='experience')
 
-# Find Career Path
+st.markdown("---")
+
+# Find Career Path Button
 if st.button("Find Career Path"):
     if "" in [group, math, tech, creativity, experience]:
         st.warning("⚠️ Please select all fields before submitting.")
@@ -131,39 +134,51 @@ if st.button("Find Career Path"):
             'Experience': experience
         }
 
-        G = build_graph_from_dataset(df)
-        H = build_heuristics(G, user_input)
-        start_node = f"Group={group}"
-        path, cost = a_star_search(G, H, start_node)
+        # Strict Filtering Before Graph
+        strict_df = df[
+            (df['Group'] == user_input['Group']) &
+            (df['Math_Score'] == user_input['Math_Score']) &
+            (df['Tech_Interest'] == user_input['Tech_Interest']) &
+            (df['Creativity'] == user_input['Creativity']) &
+            (df['Experience'] == user_input['Experience'])
+        ]
 
-        if path:
-            st.success("🎯 Career Recommendation Path Found:")
-            for step in path:
-                st.write("→", step)
-
-            st.info(f"🧮 **Total Path Cost:** {cost}")
-
-            # Graph visualization
-            Gviz = nx.DiGraph()
-            for i in range(len(path) - 1):
-                Gviz.add_edge(path[i], path[i + 1])
-
-            plt.figure(figsize=(12, 6))
-            pos = nx.spring_layout(Gviz, seed=42)
-            nx.draw(Gviz, pos, with_labels=True, node_color='lightblue', node_size=3000,
-                    font_size=10, font_weight='bold', edge_color='gray')
-            plt.title("Decision Path to Career")
-            st.pyplot(plt)
-
-            # Recommendations
-            recommendations = get_top_recommendations(df, user_input)
-            st.markdown("### 💡 Top Career Recommendations:")
-            for i, rec in enumerate(recommendations):
-                st.write(f"{i+1}. {rec}")
+        if strict_df.empty:
+            st.warning("⚠️ No exact matching career path found for your selected traits. Please modify your inputs and try again.")
         else:
-            st.error("❌ No career path found. Please try different inputs.")
+            G = build_graph_from_dataset(strict_df)
+            H = build_heuristics(G, user_input)
+            start_node = f"Group={group}"
+            path, cost = a_star_search(G, H, start_node)
 
-# Reset Button with Loading Effect
+            if path:
+                st.success("🎯 Career Recommendation Path Found:")
+                for step in path:
+                    st.write("→", step)
+
+                st.info(f"🧮 **Total Path Cost:** {cost}")
+
+                # Visualize Path
+                Gviz = nx.DiGraph()
+                for i in range(len(path) - 1):
+                    Gviz.add_edge(path[i], path[i + 1])
+
+                plt.figure(figsize=(12, 6))
+                pos = nx.spring_layout(Gviz, seed=42)
+                nx.draw(Gviz, pos, with_labels=True, node_color='lightblue', node_size=3000,
+                        font_size=10, font_weight='bold', edge_color='gray')
+                plt.title("Decision Path to Career")
+                st.pyplot(plt)
+
+                # Top Career Recommendations
+                recommendations = get_top_recommendations(strict_df, user_input)
+                st.markdown("### 💡 Top Career Recommendations:")
+                for i, rec in enumerate(recommendations):
+                    st.write(f"{i+1}. {rec}")
+            else:
+                st.error("❌ Career path could not be found. Try adjusting your inputs.")
+
+# Reset Button
 if st.button("Reset"):
     with st.spinner('🔄 Resetting your selections...'):
         st.session_state['reset'] = True
